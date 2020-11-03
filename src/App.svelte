@@ -2,10 +2,14 @@
 	export let name;
 </script>
 
-<style>
+<style global lang="scss">
 	h1 {
 		color: purple;
+
+    span {
+      color: green;
+    }
 	}
 </style>
 
-<h1>Hello {name}!</h1>
+<h1>Hello <span>{name}</span>!</h1>
