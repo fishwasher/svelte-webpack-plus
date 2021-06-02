@@ -5,7 +5,7 @@ const preprocess = require("svelte-preprocess");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 
 const srcDir = path.resolve(__dirname, "src");
-const distDir = path.resolve(__dirname, "public");
+const distDir = path.resolve(__dirname, "dist");
 
 const IS_DEV = process.env.NODE_ENV === "development";
 const MODE = IS_DEV ? "development" : "production";
