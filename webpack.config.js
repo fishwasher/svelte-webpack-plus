@@ -1,26 +1,81 @@
 const path = require("path");
+const { CleanWebpackPlugin } = require("clean-webpack-plugin");
 const DirectoryNamedWebpackPlugin = require("directory-named-webpack-plugin");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-const preprocess = require("svelte-preprocess");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
+const CopyPlugin = require("copy-webpack-plugin");
 
-const srcDir = path.resolve(__dirname, "src");
 const distDir = path.resolve(__dirname, "dist");
+const srcDir = path.resolve(__dirname, "src");
+const assDir = path.resolve(srcDir, "assets");
 
-const IS_DEV = process.env.NODE_ENV === "development";
-const MODE = IS_DEV ? "development" : "production";
+const MODE = process.env.NODE_ENV === "dev" ? "development" : "production";
+
+const VERSION_SUFFIX = (() => {
+  const d = new Date();
+  return [
+    d.getUTCFullYear(),
+    d.getUTCMonth() + 1,
+    d.getUTCDate(),
+    d.getUTCHours(),
+    d.getUTCMinutes(),
+    d.getUTCSeconds(),
+  ]
+    .map(x => {
+      const s = x + "";
+      return s.length === 1 ? "0" + s : s;
+    })
+    .join("");
+})();
+
+const pageTemplate = path.resolve(srcDir, "template.html");
+
+const entryPoints = {
+  main: ["./src/main.js"],
+};
+
+const titles = {
+  main: "News",
+};
+
+const getHtmlPluginConfig = pageName => {
+  return {
+    title: pageName in titles ? titles[pageName] : titles.main,
+    libname: pageName,
+    modifier: `?v=${VERSION_SUFFIX}`,
+    chunks: [pageName],
+    filename: pageName === "main" ? "index.html" : pageName,
+    template: pageTemplate,
+    minify: {
+      removeComments: true,
+      collapseWhitespace: true,
+      removeRedundantAttributes: true,
+      useShortDoctype: true,
+      removeEmptyAttributes: true,
+      removeStyleLinkTypeAttributes: true,
+      keepClosingSlash: true,
+      minifyJS: true,
+      minifyCSS: true,
+      minifyURLs: true,
+    },
+  };
+};
+
+const getHtmlPlugins = () => {
+  return Object.keys(entryPoints).map(pageName => {
+    return new HtmlWebpackPlugin(getHtmlPluginConfig(pageName));
+  });
+};
 
 module.exports = {
   target: "web",
   mode: MODE,
-  entry: {
-    bundle: ["./src/main.js"],
-  },
+  entry: entryPoints,
   resolve: {
     alias: {
       svelte: path.resolve("node_modules", "svelte"),
     },
-    extensions: [".mjs", ".js", ".scss", ".svelte"],
+    extensions: [".mjs", ".js", ".scss", ".svelte", ".ts", ".tsx"],
     mainFields: ["svelte", "browser", "module", "main"],
 
     modules: ["node_modules"],
@@ -29,66 +84,50 @@ module.exports = {
 
   output: {
     path: distDir,
-    filename: "[name].js",
-    chunkFilename: "[id].js",
+    filename: `[name].[contenthash:8].js`,
+    chunkFilename: "[name].[contenthash:8].chunk.js",
   },
 
   module: {
     rules: [
       {
         test: /\.svelte$/,
-        exclude: /node_modules/,
         use: [
           {
             loader: "svelte-loader",
             options: {
-              emitCss: !IS_DEV,
-              hotReload: IS_DEV,
-              preprocess: preprocess({
-                postcss: true,
-              }),
+              emitCss: true,
+              hotReload: false,
+              preprocess: require("./svelte.config.js").preprocess,
             },
           },
         ],
       },
-
       {
         test: /\.css$/,
         use: [
-          { loader: IS_DEV ? "style-loader" : MiniCssExtractPlugin.loader },
+          {
+            loader: MiniCssExtractPlugin.loader,
+          },
           { loader: "css-loader" },
           { loader: "postcss-loader" },
         ],
       },
       {
-        test: /\.s[ac]ss$/,
+        test: /\.scss$/,
         use: [
-          { loader: IS_DEV ? "style-loader" : MiniCssExtractPlugin.loader },
+          {
+            loader: MiniCssExtractPlugin.loader,
+          },
           { loader: "css-loader" },
           { loader: "postcss-loader" },
           {
             loader: "sass-loader",
             options: {
               sassOptions: {
-                outputStyle: IS_DEV ? "expanded" : "compressed",
+                outputStyle: "compressed",
                 precision: 8,
                 includePaths: [path.resolve(srcDir, "styles")],
-              },
-            },
-          },
-        ],
-      },
-      {
-        test: /\.less$/,
-        use: [
-          { loader: IS_DEV ? "style-loader" : MiniCssExtractPlugin.loader },
-          { loader: "css-loader" },
-          { loader: "postcss-loader" },
-          {
-            loader: "less-loader",
-            options: {
-              lessOptions: {
-                includePath: [path.resolve(srcDir, "styles")],
               },
             },
           },
@@ -98,28 +137,19 @@ module.exports = {
   },
 
   plugins: [
-    new MiniCssExtractPlugin({
-      filename: "[name].css",
-      chunkFilename: "[id].css",
+    new CleanWebpackPlugin(),
+
+    new CopyPlugin({
+      patterns: [{ from: assDir, to: distDir, noErrorOnMissing: true }],
     }),
 
-    new HtmlWebpackPlugin({
-      title: "Svelte App",
-      version: Math.random().toString(32).slice(2, 10),
-      chunks: ["index"],
-      filename: "index.html",
-      template: path.resolve(srcDir, "template.html"),
+    new MiniCssExtractPlugin({
+      filename: `[name].[contenthash:8].css`,
+      chunkFilename: "[name].[contenthash:8].chunk.css",
     }),
+
+    ...getHtmlPlugins(),
   ],
 
-  watchOptions: {
-    ignored: /node_modules/,
-  },
-  devtool: IS_DEV ? "cheap-module-eval-source-map" : "source-map",
-  //devtool: prod ? false : "source-map",
-  devServer: {
-    contentBase: distDir,
-    compress: true,
-    port: 5000,
-  },
+  devtool: "source-map",
 };
