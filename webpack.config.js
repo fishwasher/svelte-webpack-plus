@@ -11,23 +11,6 @@ const assDir = path.resolve(srcDir, "assets");
 
 const MODE = process.env.NODE_ENV === "dev" ? "development" : "production";
 
-const VERSION_SUFFIX = (() => {
-  const d = new Date();
-  return [
-    d.getUTCFullYear(),
-    d.getUTCMonth() + 1,
-    d.getUTCDate(),
-    d.getUTCHours(),
-    d.getUTCMinutes(),
-    d.getUTCSeconds(),
-  ]
-    .map(x => {
-      const s = x + "";
-      return s.length === 1 ? "0" + s : s;
-    })
-    .join("");
-})();
-
 const pageTemplate = path.resolve(srcDir, "template.html");
 
 const entryPoints = {
@@ -35,14 +18,13 @@ const entryPoints = {
 };
 
 const titles = {
-  main: "News",
+  main: "Svelte App",
 };
 
 const getHtmlPluginConfig = pageName => {
   return {
     title: pageName in titles ? titles[pageName] : titles.main,
     libname: pageName,
-    modifier: `?v=${VERSION_SUFFIX}`,
     chunks: [pageName],
     filename: pageName === "main" ? "index.html" : pageName,
     template: pageTemplate,
